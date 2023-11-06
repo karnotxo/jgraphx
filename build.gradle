@@ -1,41 +1,39 @@
 plugins {
-  id 'io.codearte.nexus-staging' version '0.11.0'
+  id 'java-library'
+  id 'maven-publish'
+  id 'signing'
+  //id 'io.codearte.nexus-staging' version '0.11.0'
+  id "io.github.gradle-nexus.publish-plugin"
 }
 
 allprojects {
-  apply plugin: 'maven'
+  apply plugin: 'maven-publish'
 
   group = 'com.github.vlsi.mxgraph'
-  version = '4.2.2'
+  version = '4.2.3'
 }
 
 subprojects {
-  apply plugin: 'java'
-  sourceCompatibility = 1.7
-  targetCompatibility = 1.7
+  apply plugin: 'java-library'
+  java {
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+    withSourcesJar()
+    withJavadocJar()
+  }
   tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+    options.compilerArgs += '-Xlint:unchecked'
+    options.deprecation = true
+    options.incremental = true
   }
 
   repositories {
     mavenLocal()
+    mavenCentral()
 
-    maven { url "http://repo.maven.apache.org/maven2" }
-  }
-
-  task sourcesJar(type: Jar) {
-    classifier 'sources'
-    from sourceSets.main.allJava
-    extension 'jar'
-  }
-
-  task javadocJar(type: Jar) {
-    classifier 'javadoc'
-    from javadoc
-  }
-
-  artifacts {
-    archives javadocJar, sourcesJar
+    maven { url "https://repo.maven.apache.org/maven2" }
+    maven { url "https://plugins.gradle.org/m2/" }
   }
 
   javadoc {
@@ -43,6 +41,9 @@ subprojects {
     title = "jgraphx ${project.version}"
     options {
       header "jgraphx ${project.version}"
+    }
+    if(JavaVersion.current().isJava9Compatible()) {
+      options.addBooleanOption('html5', true)
     }
   }
 }

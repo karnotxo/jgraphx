@@ -2,7 +2,7 @@ plugins {
   id 'java-library'
   id 'maven-publish'
   id 'signing'
-  id 'osgi'
+  id "biz.aQute.bnd.builder"
 }
 
 description = 'jgraphx'
@@ -10,9 +10,18 @@ ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 ext.hasCredentials = hasProperty('nexusStaging.username')
 
 // Use nexus-staging-plugin to workaround https://issues.sonatype.org/browse/OSSRH-5454
-nexusStaging {
-  delayBetweenRetriesInMillis = 30000
-  stagingProfileId = "77ffab7dd156731e"
+nexusPublishing {
+  //packageGroup = "com.github.vlsi.mxgraph"  //defaults to 'project.group'
+  repositories {
+    sonatype {   //custom repository name - 'sonatype' is pre-configured
+      //for Sonatype Nexus (OSSRH) which is used for The Central Repository
+      stagingProfileId = "77ffab7dd156731e" //can reduce execution time by even 10 seconds
+    }
+  }
+  transitionCheckOptions {
+    maxRetries.set(40)
+    delayBetween.set(java.time.Duration.ofMillis(3000))
+  }
 }
 
 sourceSets {
@@ -21,11 +30,15 @@ sourceSets {
       srcDirs = [
           "$projectDir/../jgraphx_src/src"
       ]
+      exclude '**/resources/'
+      exclude '**/*.properties'
+      exclude '**/*.gif'
     }
     resources {
       srcDirs = [
           "$projectDir/../jgraphx_src/src"
       ]
+      include '**/resources/'
       exclude '**/*.java'
     }
   }
@@ -33,21 +46,25 @@ sourceSets {
 
 jar {
   manifest {
-    attributes 'Main-Class': 'com.mxgraph.view.mxGraph'
-    instruction 'Bundle-Vendor', 'Vladimir Sitnikov'
-    instruction 'Bundle-Description', 'JGraphX: a Java Swing diagramming (graph visualisation) library'
-    instruction 'Bundle-DocURL', 'https://github.com/vlsi/jgraphx-package'
-    instruction 'Automatic-Module-Name', 'com.github.vlsi.mxgraph.jgraphx'
+    attributes(
+            'Main-Class': 'com.mxgraph.view.mxGraph',
+            'Automatic-Module-Name': 'com.github.vlsi.mxgraph.jgraphx',
+            '-exportcontents' : 'com.mxgraph.*',
+            'Bundle-Name' : 'jGraphX',
+            'Bundle-Vendor' : 'Vladimir Sitnikov',
+            'Bundle-Description' : 'JGraphX: a Java Swing diagramming (graph visualisation) library',
+            'Bundle-DocURL' : 'https://github.com/vlsi/jgraphx-package'
+    )
   }
 }
 
 publishing {
   publications {
     mavenJava(MavenPublication) {
-      artifactId = 'jgraphx'
       from components.java
-      artifact sourcesJar
-      artifact javadocJar
+      artifactId = 'jgraphx'
+      //artifact sourcesJar
+      //artifact javadocJar
       pom {
         name = 'jgraphx'
         description = 'JGraphX is a Java Swing diagramming (graph visualisation) library'
@@ -78,6 +95,19 @@ publishing {
           url = 'https://github.com/vlsi/jgraphx-publish'
         }
       }
+      pom.withXml {
+        asNode()
+                .dependencies
+                .dependency
+                .findAll { dependency ->
+                  // find all dependencies with runtime scope
+                  dependency.scope.text() == 'runtime'
+                }
+                .each { dependency ->
+                  // set the scope to 'compile'
+                  dependency.scope*.value = 'compile'
+                }
+      }
     }
   }
   if (hasCredentials) {
@@ -88,23 +118,19 @@ publishing {
         def releaseUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
         url = version.endsWith('SNAPSHOT') ? snapshotUrl : releaseUrl
         credentials {
-          username = getProperty('nexusStaging.username')
-          password = getProperty('nexusStaging.password')
+          username = getProperty('nexusPublishing.username')
+          password = getProperty('nexusPublishing.password')
         }
+      }
+      maven {
+        name = 'sampleRepo'
+        url = layout.buildDirectory.dir("repo")
       }
     }
   }
 }
 
 signing {
-  required { isReleaseVersion && gradle.taskGraph.hasTask("uploadArchives") }
+  required { isReleaseVersion && gradle.taskGraph.hasTask("publish") }
   sign publishing.publications.mavenJava
-}
-
-uploadArchives {
-  repositories {
-    mavenDeployer {
-      beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-    }
-  }
 }

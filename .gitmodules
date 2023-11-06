@@ -1,4 +1,1 @@
-[submodule "jgraphx_src"]
-	path = jgraphx_src
-	url = https://github.com/jgraph/jgraphx.git
-	shallow = true
+

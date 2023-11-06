@@ -1,6 +1,6 @@
 description = 'jgraphx-examples'
 dependencies {
-  compile project(':jgraphx')
+  implementation project(':jgraphx')
 }
 
 sourceSets {
